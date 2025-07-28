@@ -10,20 +10,31 @@ export async function testSupabaseConnection() {
     }
     console.log('✅ Supabase client initialized')
 
-    // Test 2: Test database connection
-    const { data, error } = await supabase
-      .from('information_schema.tables')
-      .select('table_name')
+    // Test 2: Test database connection with our tables
+    const { data: auctionsData, error: auctionsError } = await supabase
+      .from('auctions')
+      .select('id, name, status')
       .limit(1)
 
-    if (error) {
-      console.error('❌ Database connection failed:', error.message)
+    if (auctionsError) {
+      console.error('❌ Database connection failed:', auctionsError.message)
       return false
     }
-    
-    console.log('✅ Database connection successful')
 
-    // Test 3: Check authentication
+    console.log('✅ Database connection successful')
+    console.log('📋 Found auctions:', auctionsData?.length || 0)
+
+    // Test 3: Test categories table
+    const { data: categoriesData, error: categoriesError } = await supabase
+      .from('categories')
+      .select('name')
+      .limit(5)
+
+    if (!categoriesError && categoriesData) {
+      console.log('✅ Categories loaded:', categoriesData.map(c => c.name).join(', '))
+    }
+
+    // Test 4: Check authentication
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     
     if (authError) {
@@ -34,13 +45,16 @@ export async function testSupabaseConnection() {
       console.log('ℹ️ No user session (this is normal for initial setup)')
     }
 
-    // Test 4: Check project settings
-    const { data: settings, error: settingsError } = await supabase
-      .rpc('version')
-      .single()
+    // Test 5: Check database schema
+    const { data: tablesData, error: tablesError } = await supabase
+      .from('information_schema.tables')
+      .select('table_name')
+      .eq('table_schema', 'public')
+      .in('table_name', ['auctions', 'clients', 'lots', 'categories'])
 
-    if (!settingsError && settings) {
-      console.log('✅ Database version:', settings)
+    if (!tablesError && tablesData) {
+      const tableNames = tablesData.map(t => t.table_name)
+      console.log('✅ Schema tables found:', tableNames.join(', '))
     }
 
     console.log('🎉 All Supabase tests passed!')
